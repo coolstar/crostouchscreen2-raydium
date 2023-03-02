@@ -167,7 +167,6 @@ exit:
 
 static NTSTATUS raydium_i2c_read(PRAYD_CONTEXT pDevice, UINT32 addr, UINT8* data, UINT32 len) {
 	NTSTATUS status = STATUS_SUCCESS;
-	UINT32 total_len = len;
 
 	while (len) {
 		UINT32 xfer_len = min(len, RM_MAX_READ_SIZE);
