@@ -76,7 +76,7 @@ NTSTATUS Status indicating success or failure
 			RaydPrint(
 				DEBUG_LEVEL_ERROR,
 				DBG_IOCTL,
-				"Error allocating memory for Spb write - %!STATUS!",
+				"Error allocating memory for Spb write - 0x%x\n",
 				status);
 			goto exit;
 		}
@@ -111,7 +111,7 @@ NTSTATUS Status indicating success or failure
 		RaydPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error writing to Spb - %!STATUS!",
+			"Error writing to Spb - 0x%x\n",
 			status);
 		goto exit;
 	}
@@ -155,14 +155,10 @@ NTSTATUS Status indicating success or failure
 {
 	NTSTATUS status;
 
-	WdfWaitLockAcquire(SpbContext->SpbLock, NULL);
-
 	status = SpbDoWriteDataSynchronously(
 		SpbContext,
 		Data,
 		Length);
-
-	WdfWaitLockRelease(SpbContext->SpbLock);
 
 	return status;
 }
@@ -194,8 +190,6 @@ NTSTATUS Status indicating success or failure
 	NTSTATUS status;
 	ULONG_PTR bytesRead;
 
-	WdfWaitLockAcquire(SpbContext->SpbLock, NULL);
-
 	memory = NULL;
 	status = STATUS_INVALID_PARAMETER;
 	bytesRead = 0;
@@ -213,7 +207,7 @@ NTSTATUS Status indicating success or failure
 		RaydPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error setting address pointer for Spb read - %!STATUS!",
+			"Error doing initial write for Spb xfer 0x%x\n",
 			status);
 		goto exit;
 	}
@@ -233,7 +227,7 @@ NTSTATUS Status indicating success or failure
 			RaydPrint(
 				DEBUG_LEVEL_ERROR,
 				DBG_IOCTL,
-				"Error allocating memory for Spb read - %!STATUS!",
+				"Error allocating memory for Spb read - 0x%x\n",
 				status);
 			goto exit;
 		}
@@ -268,7 +262,7 @@ NTSTATUS Status indicating success or failure
 		RaydPrint(
 			DEBUG_LEVEL_ERROR,
 			DBG_IOCTL,
-			"Error reading from Spb - %!STATUS!",
+			"Error reading from Spb - 0x%x\n",
 			status);
 		goto exit;
 	}
@@ -283,8 +277,6 @@ exit:
 	{
 		WdfObjectDelete(memory);
 	}
-
-	WdfWaitLockRelease(SpbContext->SpbLock);
 
 	return status;
 }

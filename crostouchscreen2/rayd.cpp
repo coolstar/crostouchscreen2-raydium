@@ -59,6 +59,15 @@ static NTSTATUS raydium_i2c_send(PRAYD_CONTEXT pDevice, UINT32 addr, const UINT8
 		return STATUS_NO_MEMORY;
 	}
 
+	LONGLONG Timeout;
+	Timeout = -10 * 1000;
+	status = WdfWaitLockAcquire(pDevice->I2CContext.SpbLock, &Timeout);
+	if (status == STATUS_TIMEOUT) {
+		RaydPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+			"Timed out trying to acquire lock for write\n");
+		return STATUS_IO_TIMEOUT;
+	}
+
 	txBuf[0] = regAddr;
 	RtlCopyMemory(txBuf + 1, data, len);
 
@@ -103,6 +112,8 @@ exit:
 
 	ExFreePoolWithTag(txBuf, RAYD_POOL_TAG);
 
+	WdfWaitLockRelease(pDevice->I2CContext.SpbLock);
+
 	return status;
 }
 
@@ -110,6 +121,13 @@ static NTSTATUS raydium_i2c_readSubset(PRAYD_CONTEXT pDevice, UINT32 addr, UINT8
 	NTSTATUS status;
 
 	UINT8 regAddr = addr & 0xFF;
+
+	LONGLONG Timeout;
+	Timeout = -10 * 1000;
+	status = WdfWaitLockAcquire(pDevice->I2CContext.SpbLock, &Timeout);
+	if (status == STATUS_TIMEOUT) {
+		return STATUS_IO_TIMEOUT;
+	}
 
 	status = SpbLockController(&pDevice->I2CContext); //Perform as a single i2c transfer transaction
 	if (!NT_SUCCESS(status))
@@ -142,17 +160,22 @@ static NTSTATUS raydium_i2c_readSubset(PRAYD_CONTEXT pDevice, UINT32 addr, UINT8
 exit:
 	SpbUnlockController(&pDevice->I2CContext);
 
+	WdfWaitLockRelease(pDevice->I2CContext.SpbLock);
+
 	return status;
 }
 
 static NTSTATUS raydium_i2c_read(PRAYD_CONTEXT pDevice, UINT32 addr, UINT8* data, UINT32 len) {
 	NTSTATUS status = STATUS_SUCCESS;
+	UINT32 total_len = len;
 
 	while (len) {
 		UINT32 xfer_len = min(len, RM_MAX_READ_SIZE);
 
 		status = raydium_i2c_readSubset(pDevice, addr, data, xfer_len);
 		if (!NT_SUCCESS(status)) {
+			RaydPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
+				"subset read failed! (read %d of %d)\n", total_len - len, total_len);
 			return status;
 		}
 
@@ -557,11 +580,14 @@ BOOLEAN OnInterruptIsr(
 
 	NTSTATUS status;
 
-	if (!pDevice->ConnectInterrupt)
+	if (!pDevice->ConnectInterrupt) {
 		return false;
+	}
 
-	if (!pDevice->TouchScreenBooted)
+
+	if (!pDevice->TouchScreenBooted) {
 		return false;
+	}
 
 	status = raydium_i2c_read(pDevice, pDevice->dataBankAddr, pDevice->reportData, pDevice->packageSize);
 	if (!NT_SUCCESS(status)) {
