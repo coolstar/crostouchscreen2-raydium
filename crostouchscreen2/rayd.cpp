@@ -402,13 +402,6 @@ Status
 		return status;
 	}
 
-	status = BOOTTOUCHSCREEN(pDevice);
-
-	if (!NT_SUCCESS(status))
-	{
-		return status;
-	}
-
 	return status;
 }
 
@@ -475,6 +468,9 @@ Status
 	NTSTATUS status = STATUS_SUCCESS;
 
 	status = raydium_i2c_sw_reset(pDevice);
+	if (!NT_SUCCESS(status)) {
+		return status;
+	}
 
 	for (int i = 0; i < 20; i++) {
 		pDevice->Flags[i] = 0;
@@ -482,6 +478,11 @@ Status
 
 	pDevice->RegsSet = false;
 	pDevice->ConnectInterrupt = true;
+
+	status = BOOTTOUCHSCREEN(pDevice);
+	if (!NT_SUCCESS(status)) {
+		return status;
+	}
 
 	return status;
 }
@@ -577,6 +578,7 @@ BOOLEAN OnInterruptIsr(
 	WDFDEVICE Device = WdfInterruptGetDevice(Interrupt);
 	PRAYD_CONTEXT pDevice = GetDeviceContext(Device);
 
+	UNREFERENCED_PARAMETER(pDevice);
 	NTSTATUS status;
 
 	if (!pDevice->ConnectInterrupt) {
